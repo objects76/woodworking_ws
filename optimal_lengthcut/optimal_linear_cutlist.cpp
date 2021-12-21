@@ -1,9 +1,14 @@
+
+
+#include <Windows.h>
+
 #include <string>
 #include <sstream>
 #include <vector>
 #include <iostream>
 #include <algorithm>
 #include <cassert>
+#include <format>
 
 using namespace std;
 
@@ -84,23 +89,26 @@ int get_minimum_stock(vector<Part> parts, int stock_length, int Kerf = 3)
     } while (next_permutation(lengs.begin(), lengs.end()));
 
     // dump optimal cutmap.
-    printf("\nneeded stock: #%d\n", answer);
+    printf("\nneeded stock(%d): #%d\n", stock_length, answer);
 
-    printf("\nremains: longest=%d\n", optimal_longest_remained);
-    printf("    > ");
-    for (auto c : optimal_remains) printf("%d, ", c);
-    printf("\n");
+    //printf("\nremains: longest=%d\n", optimal_longest_remained);
+    //printf("    > ");
+    //for (auto c : optimal_remains) printf("%d, ", c);
+    //printf("\n");
 
 
-    printf("\ncutmap:\n");
+    printf("\ncutmap(including kerf.%d):\n", Kerf);
     //for (auto& cuts : optimal_cutmap) {
     //    printf("    > ");
     //    for (auto c : cuts) printf("%d, ", c);
     //    printf("\n");
     //}
-    // make cuts to 2 parts.
-    for (auto& cuts : optimal_cutmap) {
+    
+    // make cuts into 2 parts.
+    for (size_t i = 0; i < optimal_cutmap.size(); ++i) {
 
+        auto& cuts = optimal_cutmap[i];
+        //sort(cuts.begin(), cuts.end()); // already sorted.
         stringstream s1, s2;
         int l1=0, l2 = 0;
         for (int s = 0, e = cuts.size()-1; s < (int)cuts.size();)
@@ -111,25 +119,74 @@ int get_minimum_stock(vector<Part> parts, int stock_length, int Kerf = 3)
             s1 << cuts[e] << ", "; l1 += cuts[e] + Kerf; if (--e < s) break;
             s2 << cuts[e] << ", "; l2 += cuts[e] + Kerf; if (--e < s) break;
         }
-        printf("   >> %s(%d) || %s(%d)\n",
+        printf("   >> %s(%d) || %s(%d) || remained=%d\n",
             s1.str().c_str(), l1,
-            s2.str().c_str(), l2);
+            s2.str().c_str(), l2,
+            optimal_remains[i]);
     }
 
     return answer;
 }
 
+
+/*
+input format:
+    [general]
+    ;type = linear
+
+    part1 = 440x4
+    part2 = 680x4
+    part3 = 700x4
+
+    stock_length = 3600
+    kerf = 3
+*/
 int main()
 {
-    vector<Part> parts = {
-        {440,4}, {680,4}, {700,4},
-    };
-    int stock_length = 3600;
-    int kerf = 3;
+    auto data_path = ".\\optimal_linear_data.txt";
+    auto product = "general";
 
-    int n = get_minimum_stock(parts, stock_length, kerf);
+    try {
+        char val[255] = {};
+        //GetPrivateProfileStringA(product, "type", nullptr, val, 255, data_path);
+        //if (val != "linear"s) {
+        //    throw "invalid type: " + string(val);
+        //}
+        //string type = val;
 
 
+        int stock_length = GetPrivateProfileIntA(product, "stock_length", 0, data_path);
+        if (stock_length < 100 || 4000 < stock_length)
+            throw format("invalid stock length: {}", stock_length);
+
+        int kerf = GetPrivateProfileIntA(product, "kerf", 3, data_path);
+        if (kerf < 1 || 10 < kerf)
+            throw format("invalid kerf: {}", kerf);
+
+        vector<Part> parts;
+        for (int i = 1; i < 1000; ++i)
+        {
+            string key = "part" + to_string(i);
+            GetPrivateProfileStringA(product, key.c_str(), nullptr, val, 255, data_path);
+            int len = 0, cnt = 0;
+            if (strlen(val) == 0) break;
+
+            if (sscanf(val, "%d x %d", &len, &cnt) != 2)
+                throw format("invalid {}: {}", key, val);
+            parts.push_back({len,cnt});
+        }
+
+        cout << format("stock: {}(mm) ", stock_length) << endl;
+        cout << format("Total parts: {}, kerf: {}mm\n", parts.size(), kerf);
+        for (auto [l, c] : parts) {
+            cout << format("\t{} x {}\n", l, c);
+        }
+
+        get_minimum_stock(parts, stock_length, kerf);
+    }
+    catch (const string& errmsg) {
+        cout << format("Error: \n\t{}, en={}\n", errmsg.c_str(), GetLastError());
+    }
     return 0;
 }
 
