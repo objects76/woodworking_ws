@@ -91,40 +91,62 @@ int get_minimum_stock(vector<Part> parts, int stock_length, int Kerf = 3)
     // dump optimal cutmap.
     printf("\nneeded stock(%d): #%d\n", stock_length, answer);
 
-    //printf("\nremains: longest=%d\n", optimal_longest_remained);
-    //printf("    > ");
-    //for (auto c : optimal_remains) printf("%d, ", c);
-    //printf("\n");
-
 
     printf("\ncutmap(including kerf.%d):\n", Kerf);
-    //for (auto& cuts : optimal_cutmap) {
-    //    printf("    > ");
-    //    for (auto c : cuts) printf("%d, ", c);
-    //    printf("\n");
-    //}
-    
-    // make cuts into 2 parts.
+    // make cuts into 2 parts for transfortable size.
     for (size_t i = 0; i < optimal_cutmap.size(); ++i) {
-
+        
         auto& cuts = optimal_cutmap[i];
+
         //sort(cuts.begin(), cuts.end()); // already sorted.
-        stringstream s1, s2;
-        int l1=0, l2 = 0;
-        for (int s = 0, e = cuts.size()-1; s < (int)cuts.size();)
+        std::vector<int> part1, part2;
+        int l1 = 0, l2 = 0;
+        for (int s = 0, e = cuts.size() - 1; s < (int)cuts.size();)
         {
-            s1 << cuts[s] << ", "; l1 += cuts[s]+ Kerf; if (++s > e) break;
-            s2 << cuts[s] << ", "; l2 += cuts[s]+ Kerf; if (++s > e) break;
+            part1.push_back(cuts[s]); if (++s > e) break;
+            part2.push_back(cuts[s]); if (++s > e) break;
 
-            s1 << cuts[e] << ", "; l1 += cuts[e] + Kerf; if (--e < s) break;
-            s2 << cuts[e] << ", "; l2 += cuts[e] + Kerf; if (--e < s) break;
+            part1.push_back(cuts[e]); if (--e < s) break;
+            part2.push_back(cuts[e]); if (--e < s) break;
         }
-        printf("   >> %s(%d) || %s(%d) || remained=%d\n",
-            s1.str().c_str(), l1,
-            s2.str().c_str(), l2,
-            optimal_remains[i]);
-    }
+        
+        int part_length = 0;
+        stringstream ss;
+        for (auto i : part1) {
+            ss << i << ", ";
+            part_length += i + Kerf;
+        }
+        cout << format("    {}({})", ss.str(), part_length);
 
+        ss.str("");
+        part_length = 0;
+        for (auto i : part2) {
+            ss << i << ", ";
+            part_length += i+Kerf;
+        }
+        cout << format(" | {}({})", ss.str(), part_length);
+        cout << format(" | remained={}", optimal_remains[i]) << endl;
+
+        const char filler = '.';
+        string line(101, ' ');
+        int fill = 0;
+        int ith = 0;
+        for (auto c : part1) {
+            int ratio = c * 100 / 3600;
+            std::fill_n(&line[fill], ratio, filler);
+            int n = sprintf(&line[fill], "%d", c); line[fill+n] = filler;
+            fill += ratio;
+        }
+
+        line[fill++] = '|';
+        for (auto c : part2) {
+            int ratio = c * 100 / 3600;
+            std::fill_n(&line[fill], ratio, filler);
+            int n = sprintf(&line[fill], "%d", c); line[fill + n] = filler;
+            fill += ratio;
+        }
+        cout << "    [" << line << "]" << endl << endl;
+    }
     return answer;
 }
 
@@ -143,6 +165,21 @@ input format:
 */
 int main()
 {
+    // length output
+    //string line(100, ' ');
+    //vector<int> cuts = { 440, 680 };
+    //int stock_length = 3600;
+    //int fill = 0;
+    //for (auto c : cuts) {
+    //    int ratio = c * 100 / 3600;
+    //    std::fill_n(&line[fill], ratio, '-');
+    //    sprintf(&line[fill], "%d", c);
+    //    fill += ratio;
+    //}
+
+    //cout << '[' << line << ']' << endl;
+    //return 0;
+
     auto data_path = ".\\optimal_linear_data.txt";
     auto product = "general";
 
@@ -187,6 +224,8 @@ int main()
     catch (const string& errmsg) {
         cout << format("Error: \n\t{}, en={}\n", errmsg.c_str(), GetLastError());
     }
+
+
     return 0;
 }
 
