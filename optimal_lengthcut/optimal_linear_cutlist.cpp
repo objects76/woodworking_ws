@@ -9,7 +9,10 @@
 #include <algorithm>
 #include <cassert>
 #include <format>
-
+#include <fstream>
+#include <streambuf>
+#include <filesystem>
+namespace fs = std::filesystem;
 using namespace std;
 
 struct Part {
@@ -163,8 +166,17 @@ input format:
     stock_length = 3600
     kerf = 3
 */
-int main()
+
+
+int main(int argc, const char*argv[])
 {
+    if (argc != 2 || !fs::exists(argv[1]))
+    {
+        std::cout << "Usage:\n"
+            << "\txxx.exe datafile\n\n";
+            return -1;
+    }
+
     // length output
     //string line(100, ' ');
     //vector<int> cuts = { 440, 680 };
@@ -180,8 +192,20 @@ int main()
     //cout << '[' << line << ']' << endl;
     //return 0;
 
-    auto data_path = ".\\optimal_linear_data.txt";
+    auto data_path = argv[1];// ".\\optimal_linear_data.txt";
     auto product = "general";
+
+    std::string inifile = std::tmpnam(nullptr);
+    {
+        ofstream of(inifile);
+        of << format("[{}]", product) << endl;
+
+        std::ifstream t(data_path);
+        std::string str((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+        of << str;
+
+        data_path = inifile.c_str();
+    }
 
     try {
         char val[255] = {};

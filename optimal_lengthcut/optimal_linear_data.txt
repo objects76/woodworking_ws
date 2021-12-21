@@ -1,6 +1,4 @@
 
-[general]
-type = linear
 stock_length = 3600
 kerf = 3
 
