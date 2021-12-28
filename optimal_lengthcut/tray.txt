@@ -1,0 +1,9 @@
+
+stock_length = 3600
+kerf = 3
+
+part1 = 440 x4
+part2 = 680 x4
+part3 = 700 x4
+
+

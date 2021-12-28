@@ -2,16 +2,17 @@
 
 #include <Windows.h>
 
-#include <string>
-#include <sstream>
-#include <vector>
-#include <iostream>
 #include <algorithm>
 #include <cassert>
+#include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
+#include <iostream>
+#include <sstream>
 #include <streambuf>
-#include <filesystem>
+#include <string>
+#include <vector>
 namespace fs = std::filesystem;
 using namespace std;
 
@@ -20,6 +21,66 @@ struct Part {
     int count;
 };
 
+void print_optimal_cuts(vector<vector<int>>& optimal_cutmap, int stock_length, int Kerf)
+{
+    cout << format("stock length: {}, kerf width: {} (mm)", stock_length, Kerf) << endl;
+    cout << format("   minimum stock needed: {}", optimal_cutmap.size()) << endl << endl;
+
+    // make cuts into 2 parts for transfortable size.
+    for (auto& cuts : optimal_cutmap) {
+        
+        sort(cuts.begin(), cuts.end()); // already sorted.
+        std::vector<int> part1, part2;
+        for (int s = 0, e = cuts.size() - 1; s < (int)cuts.size();)
+        {
+            part1.push_back(cuts[s]); if (++s > e) break;
+            part2.push_back(cuts[s]); if (++s > e) break;
+
+            part1.push_back(cuts[e]); if (--e < s) break;
+            part2.push_back(cuts[e]); if (--e < s) break;
+        }
+
+        int part_length = 0;
+        int remained = stock_length;
+        stringstream ss;
+        for (auto i : part1) {
+            ss << i << ", ";
+            part_length += i + Kerf;
+        }
+        remained -= part_length;
+        cout << format("    {}({})", ss.str(), part_length);
+
+        ss.str("");
+        part_length = 0;
+        for (auto i : part2) {
+            ss << i << ", ";
+            part_length += i + Kerf;
+        }
+        remained -= part_length;
+        cout << format(" | {}({})", ss.str(), part_length);
+        cout << format(" | remained={}", remained) << endl;
+
+        const char filler = '.';
+        string line(101, ' ');
+        int fill = 0;
+        int ith = 0;
+        for (auto c : part1) {
+            int ratio = c * 100 / 3600;
+            std::fill_n(&line[fill], ratio, filler);
+            int n = sprintf(&line[fill], "%d", c); line[fill + n] = filler;
+            fill += ratio;
+        }
+
+        line[fill++] = '|';
+        for (auto c : part2) {
+            int ratio = c * 100 / 3600;
+            std::fill_n(&line[fill], ratio, filler);
+            int n = sprintf(&line[fill], "%d", c); line[fill + n] = filler;
+            fill += ratio;
+        }
+        cout << "    [" << line << "]" << endl << endl;
+    }
+}
 int get_minimum_stock(vector<Part> parts, int stock_length, int Kerf = 3)
 {
     vector<int> lengs;
@@ -36,7 +97,6 @@ int get_minimum_stock(vector<Part> parts, int stock_length, int Kerf = 3)
 
     vector<vector<int>> optimal_cutmap;
     vector<int> optimal_remains;
-    int optimal_longest_remained = 0;
 
     sort(lengs.begin(), lengs.end());
     do {
@@ -56,7 +116,7 @@ int get_minimum_stock(vector<Part> parts, int stock_length, int Kerf = 3)
                 // save remained & current cutmap
                 cutmap_list.push_back(cutmap);
                 remains.push_back(remained);
-                longest_remained = max(longest_remained, remained);
+                longest_remained = (max)(longest_remained, remained);
                     
                 // refill stock.
                 remained = stock_length;
@@ -81,75 +141,30 @@ int get_minimum_stock(vector<Part> parts, int stock_length, int Kerf = 3)
                 longest_remained = max(longest_remained, remained);
             }
 
-            if (answer > stock_needed || longest_remained > optimal_longest_remained) {
+            bool have2update = answer > stock_needed;
+            sort(remains.begin(), remains.end(), greater<int>());
+            if (!have2update)
+            {
+                // compare remains.
+                assert(stock_needed == answer);
+                for (size_t i = 0; i < remains.size() && !have2update; ++i) {
+                    have2update = remains[i] > optimal_remains[i];
+                }
+            }
+
+            if (have2update)
+            {
                 optimal_cutmap = cutmap_list;
                 optimal_remains = remains;
-                optimal_longest_remained = longest_remained;
             }
             answer = stock_needed;
         }
 
     } while (next_permutation(lengs.begin(), lengs.end()));
 
-    // dump optimal cutmap.
-    printf("\nneeded stock(%d): #%d\n", stock_length, answer);
-
-
-    printf("\ncutmap(including kerf.%d):\n", Kerf);
-    // make cuts into 2 parts for transfortable size.
-    for (size_t i = 0; i < optimal_cutmap.size(); ++i) {
-        
-        auto& cuts = optimal_cutmap[i];
-
-        //sort(cuts.begin(), cuts.end()); // already sorted.
-        std::vector<int> part1, part2;
-        int l1 = 0, l2 = 0;
-        for (int s = 0, e = cuts.size() - 1; s < (int)cuts.size();)
-        {
-            part1.push_back(cuts[s]); if (++s > e) break;
-            part2.push_back(cuts[s]); if (++s > e) break;
-
-            part1.push_back(cuts[e]); if (--e < s) break;
-            part2.push_back(cuts[e]); if (--e < s) break;
-        }
-        
-        int part_length = 0;
-        stringstream ss;
-        for (auto i : part1) {
-            ss << i << ", ";
-            part_length += i + Kerf;
-        }
-        cout << format("    {}({})", ss.str(), part_length);
-
-        ss.str("");
-        part_length = 0;
-        for (auto i : part2) {
-            ss << i << ", ";
-            part_length += i+Kerf;
-        }
-        cout << format(" | {}({})", ss.str(), part_length);
-        cout << format(" | remained={}", optimal_remains[i]) << endl;
-
-        const char filler = '.';
-        string line(101, ' ');
-        int fill = 0;
-        int ith = 0;
-        for (auto c : part1) {
-            int ratio = c * 100 / 3600;
-            std::fill_n(&line[fill], ratio, filler);
-            int n = sprintf(&line[fill], "%d", c); line[fill+n] = filler;
-            fill += ratio;
-        }
-
-        line[fill++] = '|';
-        for (auto c : part2) {
-            int ratio = c * 100 / 3600;
-            std::fill_n(&line[fill], ratio, filler);
-            int n = sprintf(&line[fill], "%d", c); line[fill + n] = filler;
-            fill += ratio;
-        }
-        cout << "    [" << line << "]" << endl << endl;
-    }
+    
+    print_optimal_cuts(optimal_cutmap, stock_length, Kerf);
+    
     return answer;
 }
 
@@ -168,7 +183,7 @@ input format:
 */
 
 
-int main(int argc, const char*argv[])
+int main_linear(int argc, const char*argv[])
 {
     if (argc != 2 || !fs::exists(argv[1]))
     {

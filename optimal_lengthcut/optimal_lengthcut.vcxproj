@@ -148,6 +148,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="optimal_2d_cutlist.cpp" />
     <ClCompile Include="optimal_linear_cutlist.cpp" />
   </ItemGroup>
   <ItemGroup>
